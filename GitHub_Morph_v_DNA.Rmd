@@ -1,0 +1,27 @@
+---
+title: "Morph_v_DNA"
+author: "Savannah Ryburn"
+date: "2025-05-20"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(tidyr)
+library(cowplot)
+library(scales)
+library(ggplot2)
+library(phyloseq)
+library(RColorBrewer)
+```
+
+```{r}
+setwd("/Users/savannahryburn/Desktop/Stomach_Chunk_Data/GitHub_Morph_v_DNA/GitHub_Morph_v_DNA")
+
+Chunk <- read.csv("Stomach_Chunk_Data.csv")
+Chunk_simple <- read.csv("Chunk_simple.csv")
+Richness_diff_data <- read.csv("Richness_SharkSpecies_Diff.csv")
+Chunk_per <- read.csv("Chunk_data_permanova.csv")
+```
