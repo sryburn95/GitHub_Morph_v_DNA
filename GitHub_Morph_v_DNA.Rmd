@@ -17,11 +17,11 @@ library(phyloseq)
 library(RColorBrewer)
 ```
 
-```{r}
-setwd("/Users/savannahryburn/Desktop/Stomach_Chunk_Data/GitHub_Morph_v_DNA/GitHub_Morph_v_DNA")
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/savannahryburn/Desktop/Stomach_Chunk_data/GitHub_Morph_v_DNA/GitHub_Morph_v_DNA")
 
-Chunk <- read.csv("Stomach_Chunk_Data.csv")
-Chunk_simple <- read.csv("Chunk_simple.csv")
-Richness_diff_data <- read.csv("Richness_SharkSpecies_Diff.csv")
-Chunk_per <- read.csv("Chunk_data_permanova.csv")
+Chunk <- read.csv("Data/Stomach_Chunk_Data.csv")
+Chunk_simple <- read.csv("Data/Chunk_simple.csv")
+Richness_diff_data <- read.csv("Data/Richness_SharkSpecies_Diff.csv")
+Chunk_per <- read.csv("Data/Chunk_data_permanova.csv")
 ```
