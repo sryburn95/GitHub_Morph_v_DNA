@@ -25,3 +25,901 @@ Chunk_simple <- read.csv("Data/Chunk_simple.csv")
 Richness_diff_data <- read.csv("Data/Richness_SharkSpecies_Diff.csv")
 Chunk_per <- read.csv("Data/Chunk_data_permanova.csv")
 ```
+
+#Comparing taxonomic rank
+```{r}
+species_visual <- ggplot(Chunk, 
+       aes(x = factor(Shark_species),
+           fill = factor(lowest_visual, 
+                         levels = c("Subphylum", "Subclass", "Infraclass", "Order", "Infraorder", "Family", "Genus", "Species", "NA"),
+                         labels = c("Subphylum", "Subclass", "Infraclass", "Order", "Infraorder", "Family", "Genus", "Species", "NA")))) + 
+  geom_bar(position = "fill") +
+  scale_y_continuous(breaks = seq(0, 1, .2), 
+                     label = percent, expand = c(0,0)) +
+  labs(y = "Percent of prey taxa identified", 
+       fill = "Prey taxa",
+       x = "Shark species") +
+  theme_classic() +
+    scale_fill_manual(values = c("royalblue", "indianred4", "#d7b5d8", "aquamarine4","salmon", "darkolivegreen3", "khaki", "lightblue", "grey")) +
+   theme(text = element_text(size =11))
+
+ species_visual
+
+library(scales)
+species_DNA <- ggplot(Chunk, 
+       aes(x = factor(Shark_species),
+           fill = factor(BLAST_taxanomic_resolution, 
+                         levels = c("Order", "Family", "Genus", "Species", "NA"),
+                         labels = c("Order", "Family", "Genus", "Species", "NA")))) + 
+  geom_bar(position = "fill") +
+  scale_y_continuous(breaks = seq(0, 1, .2), 
+                     label = percent, expand = c(0,0)) +
+  labs(y = "Percent of prey taxa identified", 
+       fill = "Prey taxa",
+       x = "Shark species") +
+  theme_classic() +
+  scale_fill_manual(values = c("aquamarine4", "darkolivegreen3", "khaki", "lightblue", "grey")) +
+   theme(text = element_text(size =11))
+
+species_DNA
+
+
+plot_grid(species_visual, species_DNA, labels = "AUTO")
+```
+
+Make Percentage Tables
+```{r}
+####Visual####
+# Calculate percentages
+percentage_table <- Chunk %>%
+  group_by(Shark_species, lowest_visual) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(Shark_species) %>%
+  mutate(percent = count / sum(count) * 100) %>%
+  ungroup()
+
+# Pivot into a wide table for better readability
+wide_table <- percentage_table %>%
+  select(Shark_species, lowest_visual, percent) %>%
+  pivot_wider(names_from = lowest_visual, values_from = percent, values_fill = 0)
+
+# View the table
+print(wide_table)
+
+# Optional: Save the table as a CSV
+#write.csv(wide_table, "percentage_table.csv", row.names = FALSE)
+
+
+####DNA####
+# Calculate percentages
+dna_percentage_table <- Chunk %>%
+  group_by(Shark_species, BLAST_taxanomic_resolution) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(Shark_species) %>%
+  mutate(percent = count / sum(count) * 100) %>%
+  ungroup()
+
+# Pivot into a wide table for better readability
+dna_wide_table <- dna_percentage_table %>%
+  select(Shark_species, BLAST_taxanomic_resolution, percent) %>%
+  pivot_wider(names_from = BLAST_taxanomic_resolution, values_from = percent, values_fill = 0)
+
+# View the table
+print(dna_wide_table)
+
+# Optional: Save the table as a CSV
+#write.csv(dna_wide_table, "dna_percentage_table.csv", row.names = FALSE)
+```
+
+Chi Squared
+```{r}
+# Step 1: Create datasets for each methodology
+visual_data <- Chunk_simple %>% 
+  select(lowest_visual) %>% 
+  mutate(Methodology = "Visual", Count = 1) %>%
+  rename(Value = lowest_visual)
+
+dna_data <- Chunk_simple %>% 
+  select(BLAST_taxanomic_resolution) %>% 
+  mutate(Methodology = "DNA", Count = 1) %>%
+  rename(Value = BLAST_taxanomic_resolution)
+
+# Step 2: Combine the datasets
+combined_data <- bind_rows(visual_data, dna_data)
+View(combined_data)
+
+# Step 3: Plot combined data on the same x-axis (not using this plot anymore)
+# Count_method_combined_plot <- ggplot(combined_data, aes(x = Methodology, fill = Value)) +
+#   geom_bar(position = "dodge") +  # Bars side-by-side
+#   labs(x = "Methodology", y = "Count of Prey Items", fill = "Taxonomic resolution") +
+#   scale_fill_manual(values = c("navy", "yellowgreen")) +
+#   theme_classic()
+# 
+# Count_method_combined_plot
+
+
+#Chi-squared test
+# Step 1: Create a contingency table
+contingency_table <- table(combined_data$Methodology, combined_data$Value)
+View(contingency_table) ##used this table instead of the above plot
+
+# Step 2: Perform chi-squared test
+chi_squared_test <- chisq.test(contingency_table)
+
+# Display results
+chi_squared_test
+```
+
+#Count match
+```{r}
+Chunk$Accuracy <- factor(Chunk$Accuracy, levels = c("Match", "General", "Unidentified general", "Too specific", "Wrong visual", "NA DNA"))
+
+Count_method_plot <- ggplot(Chunk, aes(x=Accuracy,fill=Shark_species)) + geom_bar() + labs(x ="Accuracy", y = "Count of Prey Items") + theme_classic() + scale_fill_brewer(palette = "GnBu")
+
+Count_method_plot
+
+
+#Fisher Test
+contingency_table <- table(Chunk$Accuracy, Chunk$Shark_species)
+fisher.test(contingency_table, simulate.p.value = TRUE, B = 1e6)
+```
+
+#Figure out what to compare Accuracy to here (BLAST_ID)
+```{r}
+Chunk$Accuracy <- factor(Chunk$Accuracy, levels = c("Match", "General", "Unidentified general", "Too specific", "Wrong visual", "NA DNA"))
+
+Count_method_plot <- ggplot(Chunk, aes(x=Accuracy,fill=BLAST_ID)) + geom_bar() + labs(x ="Accuracy", y = "Count of Prey Items") + theme_classic()
+
+Count_method_plot
+
+
+table_summary <- table(Chunk$BLAST_ID, Chunk$Accuracy)
+table_summary
+
+
+#Fisher Test
+contingency_table <- table(Chunk$Accuracy, Chunk$BLAST_ID)
+fisher.test(contingency_table, simulate.p.value = TRUE, B = 1e6)
+```
+
+#Figure out what to compare Accuracy to here (Visual_ID)
+```{r}
+Chunk$Accuracy <- factor(Chunk$Accuracy, levels = c("Match", "General", "Unidentified general", "Too specific", "Wrong visual", "NA DNA"))
+
+Count_method_plot <- ggplot(Chunk, aes(x=Accuracy,fill=Visual_ID)) + geom_bar() + labs(x ="Accuracy", y = "Count of Prey Items") + theme_classic()
+
+Count_method_plot
+
+
+table_summary <- table(Chunk$Visual_ID, Chunk$Accuracy)
+table_summary
+
+
+#Fisher Test
+contingency_table <- table(Chunk$Accuracy, Chunk$Visual_ID)
+fisher.test(contingency_table, simulate.p.value = TRUE, B = 1e6)
+```
+
+Match vs. prey weight
+```{r}
+ggplot(Chunk, aes(x = Accuracy, y = Prey_Weight)) +
+  geom_boxplot(outlier.shape = NA) + # Suppress outliers from box plot
+  geom_jitter(width = 0.2, alpha = 0.5, color = "black") +
+  labs(x = "Accuracy", y = "Prey Weight") +
+  theme_classic()
+```
+
+IRI% Calculations - All sharks combined
+```{r}
+###Visual
+
+# Remove rows with NA values in Count or Weight
+Chunk <- Chunk %>%
+  filter(!is.na(Number.of.individuals.in.sample), !is.na(Prey_Weight))
+Chunk
+
+# Check for zero total counts or weights
+sum(Chunk$Number.of.individuals.in.sample)
+sum(Chunk$Prey_Weight)
+
+
+# Frequency of Occurrence (FO) calculation
+fo <- Chunk %>%
+  group_by(Visual_ID) %>%
+  summarise(Frequency = n_distinct(Fodrie_shark)) %>%
+  mutate(FO = (Frequency / n_distinct(Chunk$Fodrie_shark)) * 100)
+
+# Numerical Abundance (N%) calculation
+n_percentage <- Chunk %>%
+  group_by(Visual_ID) %>%
+  summarise(Total_Count = sum(Number.of.individuals.in.sample)) %>%
+  mutate(N_percent = (Total_Count / sum(Total_Count)) * 100)
+
+# Weight Percentage (W%) calculation
+w_percentage <- Chunk %>%
+  group_by(Visual_ID) %>%
+  summarise(Total_Weight = sum(Prey_Weight)) %>%
+  mutate(W_percent = (Total_Weight / sum(Total_Weight)) * 100)
+
+# Combine and calculate IRI
+iri_data_V <- fo %>%
+  left_join(n_percentage, by = "Visual_ID") %>%
+  left_join(w_percentage, by = "Visual_ID") %>%
+  mutate(IRI = (N_percent + W_percent) * FO)
+
+iri_data_V
+
+# Calculate the IRI percentage
+total_iri <- sum(iri_data_V$IRI, na.rm = TRUE)
+iri_data_V <- iri_data_V %>%
+  mutate(IRI_percent = (IRI / total_iri) * 100)
+
+iri_data_V
+
+#write.csv(iri_data_V, "/Users/savannahryburn/Desktop/iri_data_Visual.csv", row.names = FALSE)
+
+###DNA
+# Frequency of Occurrence (FO) calculation
+fo <- Chunk %>%
+  group_by(BLAST_ID) %>%
+  summarise(Frequency = n_distinct(Fodrie_shark)) %>%
+  mutate(FO = (Frequency / n_distinct(Chunk$Fodrie_shark)) * 100)
+
+# Numerical Abundance (N%) calculation
+n_percentage <- Chunk %>%
+  group_by(BLAST_ID) %>%
+  summarise(Total_Count = sum(Number.of.individuals.in.sample)) %>%
+  mutate(N_percent = (Total_Count / sum(Total_Count)) * 100)
+
+# Weight Percentage (W%) calculation
+w_percentage <- Chunk %>%
+  group_by(BLAST_ID) %>%
+  summarise(Total_Weight = sum(Prey_Weight)) %>%
+  mutate(W_percent = (Total_Weight / sum(Total_Weight)) * 100)
+
+# Combine and calculate IRI
+iri_data_DNA <- fo %>%
+  left_join(n_percentage, by = "BLAST_ID") %>%
+  left_join(w_percentage, by = "BLAST_ID") %>%
+  mutate(IRI = (N_percent + W_percent) * FO)
+
+iri_data_DNA
+
+# Calculate the IRI percentage
+total_iri <- sum(iri_data_DNA$IRI, na.rm = TRUE)
+iri_data_DNA <- iri_data_DNA %>%
+  mutate(IRI_percent = (IRI / total_iri) * 100)
+
+iri_data_DNA
+
+#write.csv(iri_data_DNA, "/Users/savannahryburn/Desktop/iri_data_DNA.csv", row.names = FALSE)
+```
+
+IRI% Calculations - Atlantic Sharpnose
+```{r}
+###Visual
+
+# Remove rows with NA values in Count or Weight
+Chunk <- Chunk %>%
+  filter(!is.na(Number.of.individuals.in.sample), !is.na(Prey_Weight))
+Chunk
+
+# Check for zero total counts or weights
+sum(Chunk$Number.of.individuals.in.sample)
+sum(Chunk$Prey_Weight)
+
+#Now only by shark species (Atlantic sharpnose)
+Chunk_AS <- Chunk %>%
+  filter(Shark_species == "Atlantic Sharpnose")
+View(Chunk_AS)
+
+# Frequency of Occurrence (FO) calculation
+fo <- Chunk_AS %>%
+  group_by(Visual_ID) %>%
+  summarise(Frequency = n_distinct(Fodrie_shark)) %>%
+  mutate(FO = (Frequency / n_distinct(Chunk_AS$Fodrie_shark)) * 100)
+
+# Numerical Abundance (N%) calculation
+n_percentage <- Chunk_AS %>%
+  group_by(Visual_ID) %>%
+  summarise(Total_Count = sum(Number.of.individuals.in.sample)) %>%
+  mutate(N_percent = (Total_Count / sum(Total_Count)) * 100)
+
+# Weight Percentage (W%) calculation
+w_percentage <- Chunk_AS %>%
+  group_by(Visual_ID) %>%
+  summarise(Total_Weight = sum(Prey_Weight)) %>%
+  mutate(W_percent = (Total_Weight / sum(Total_Weight)) * 100)
+
+# Combine and calculate IRI
+iri_data_V_AS <- fo %>%
+  left_join(n_percentage, by = "Visual_ID") %>%
+  left_join(w_percentage, by = "Visual_ID") %>%
+  mutate(IRI = (N_percent + W_percent) * FO)
+
+iri_data_V_AS
+
+# Calculate the IRI percentage
+total_iri <- sum(iri_data_V_AS$IRI, na.rm = TRUE)
+iri_data_V_AS <- iri_data_V_AS %>%
+  mutate(IRI_percent = (IRI / total_iri) * 100)
+
+iri_data_V_AS
+
+#write.csv(iri_data_V_AS, "/Users/savannahryburn/Desktop/Stomach_Chunk_data/iri_data_Visual_AS.csv", row.names = FALSE)
+
+###DNA
+# Frequency of Occurrence (FO) calculation
+fo <- Chunk_AS %>%
+  group_by(BLAST_ID) %>%
+  summarise(Frequency = n_distinct(Fodrie_shark)) %>%
+  mutate(FO = (Frequency / n_distinct(Chunk_AS$Fodrie_shark)) * 100)
+
+# Numerical Abundance (N%) calculation
+n_percentage <- Chunk_AS %>%
+  group_by(BLAST_ID) %>%
+  summarise(Total_Count = sum(Number.of.individuals.in.sample)) %>%
+  mutate(N_percent = (Total_Count / sum(Total_Count)) * 100)
+
+# Weight Percentage (W%) calculation
+w_percentage <- Chunk_AS %>%
+  group_by(BLAST_ID) %>%
+  summarise(Total_Weight = sum(Prey_Weight)) %>%
+  mutate(W_percent = (Total_Weight / sum(Total_Weight)) * 100)
+
+# Combine and calculate IRI
+iri_data_DNA_AS <- fo %>%
+  left_join(n_percentage, by = "BLAST_ID") %>%
+  left_join(w_percentage, by = "BLAST_ID") %>%
+  mutate(IRI = (N_percent + W_percent) * FO)
+
+iri_data_DNA_AS
+
+# Calculate the IRI percentage
+total_iri <- sum(iri_data_DNA_AS$IRI, na.rm = TRUE)
+iri_data_DNA_AS <- iri_data_DNA_AS %>%
+  mutate(IRI_percent = (IRI / total_iri) * 100)
+
+iri_data_DNA_AS
+
+#write.csv(iri_data_DNA_AS, "/Users/savannahryburn/Desktop/Stomach_Chunk_data/iri_data_DNA_AS.csv", row.names = FALSE)
+```
+
+IRI% Calculations - Blacknose
+```{r}
+###Visual
+
+# Remove rows with NA values in Count or Weight
+Chunk <- Chunk %>%
+  filter(!is.na(Number.of.individuals.in.sample), !is.na(Prey_Weight))
+Chunk
+
+# Check for zero total counts or weights
+sum(Chunk$Number.of.individuals.in.sample)
+sum(Chunk$Prey_Weight)
+
+#Now only by shark species (Atlantic sharpnose)
+Chunk_BN <- Chunk %>%
+  filter(Shark_species == "Blacknose")
+#View(Chunk_BN)
+
+# Frequency of Occurrence (FO) calculation
+fo <- Chunk_BN %>%
+  group_by(Visual_ID) %>%
+  summarise(Frequency = n_distinct(Fodrie_shark)) %>%
+  mutate(FO = (Frequency / n_distinct(Chunk_BN$Fodrie_shark)) * 100)
+
+# Numerical Abundance (N%) calculation
+n_percentage <- Chunk_BN %>%
+  group_by(Visual_ID) %>%
+  summarise(Total_Count = sum(Number.of.individuals.in.sample)) %>%
+  mutate(N_percent = (Total_Count / sum(Total_Count)) * 100)
+
+# Weight Percentage (W%) calculation
+w_percentage <- Chunk_BN %>%
+  group_by(Visual_ID) %>%
+  summarise(Total_Weight = sum(Prey_Weight)) %>%
+  mutate(W_percent = (Total_Weight / sum(Total_Weight)) * 100)
+
+# Combine and calculate IRI
+iri_data_V_BN <- fo %>%
+  left_join(n_percentage, by = "Visual_ID") %>%
+  left_join(w_percentage, by = "Visual_ID") %>%
+  mutate(IRI = (N_percent + W_percent) * FO)
+
+iri_data_V_BN
+
+# Calculate the IRI percentage
+total_iri <- sum(iri_data_V_BN$IRI, na.rm = TRUE)
+iri_data_V_BN <- iri_data_V_BN %>%
+  mutate(IRI_percent = (IRI / total_iri) * 100)
+
+iri_data_V_BN
+
+#write.csv(iri_data_V_BN, "/Users/savannahryburn/Desktop/Stomach_Chunk_data/iri_data_Visual_BN.csv", row.names = FALSE)
+
+###DNA
+# Frequency of Occurrence (FO) calculation
+fo <- Chunk_BN %>%
+  group_by(BLAST_ID) %>%
+  summarise(Frequency = n_distinct(Fodrie_shark)) %>%
+  mutate(FO = (Frequency / n_distinct(Chunk_BN$Fodrie_shark)) * 100)
+
+# Numerical Abundance (N%) calculation
+n_percentage <- Chunk_BN %>%
+  group_by(BLAST_ID) %>%
+  summarise(Total_Count = sum(Number.of.individuals.in.sample)) %>%
+  mutate(N_percent = (Total_Count / sum(Total_Count)) * 100)
+
+# Weight Percentage (W%) calculation
+w_percentage <- Chunk_BN %>%
+  group_by(BLAST_ID) %>%
+  summarise(Total_Weight = sum(Prey_Weight)) %>%
+  mutate(W_percent = (Total_Weight / sum(Total_Weight)) * 100)
+
+# Combine and calculate IRI
+iri_data_DNA_BN <- fo %>%
+  left_join(n_percentage, by = "BLAST_ID") %>%
+  left_join(w_percentage, by = "BLAST_ID") %>%
+  mutate(IRI = (N_percent + W_percent) * FO)
+
+iri_data_DNA_BN
+
+# Calculate the IRI percentage
+total_iri <- sum(iri_data_DNA_BN$IRI, na.rm = TRUE)
+iri_data_DNA_BN <- iri_data_DNA_BN %>%
+  mutate(IRI_percent = (IRI / total_iri) * 100)
+
+iri_data_DNA_BN
+
+#write.csv(iri_data_DNA_BN, "/Users/savannahryburn/Desktop/Stomach_Chunk_data/iri_data_DNA_BN.csv", row.names = FALSE)
+```
+
+IRI% Calculations - Blacktip
+```{r}
+###Visual
+
+# Remove rows with NA values in Count or Weight
+Chunk <- Chunk %>%
+  filter(!is.na(Number.of.individuals.in.sample), !is.na(Prey_Weight))
+Chunk
+
+# Check for zero total counts or weights
+sum(Chunk$Number.of.individuals.in.sample)
+sum(Chunk$Prey_Weight)
+
+#Now only by shark species (Atlantic sharpnose)
+Chunk_BT <- Chunk %>%
+  filter(Shark_species == "Blacktip")
+#View(Chunk_BT)
+
+# Frequency of Occurrence (FO) calculation
+fo <- Chunk_BT %>%
+  group_by(Visual_ID) %>%
+  summarise(Frequency = n_distinct(Fodrie_shark)) %>%
+  mutate(FO = (Frequency / n_distinct(Chunk_BT$Fodrie_shark)) * 100)
+
+# Numerical Abundance (N%) calculation
+n_percentage <- Chunk_BT %>%
+  group_by(Visual_ID) %>%
+  summarise(Total_Count = sum(Number.of.individuals.in.sample)) %>%
+  mutate(N_percent = (Total_Count / sum(Total_Count)) * 100)
+
+# Weight Percentage (W%) calculation
+w_percentage <- Chunk_BT %>%
+  group_by(Visual_ID) %>%
+  summarise(Total_Weight = sum(Prey_Weight)) %>%
+  mutate(W_percent = (Total_Weight / sum(Total_Weight)) * 100)
+
+# Combine and calculate IRI
+iri_data_V_BT <- fo %>%
+  left_join(n_percentage, by = "Visual_ID") %>%
+  left_join(w_percentage, by = "Visual_ID") %>%
+  mutate(IRI = (N_percent + W_percent) * FO)
+
+iri_data_V_BT
+
+# Calculate the IRI percentage
+total_iri <- sum(iri_data_V_BT$IRI, na.rm = TRUE)
+iri_data_V_BT <- iri_data_V_BT %>%
+  mutate(IRI_percent = (IRI / total_iri) * 100)
+
+iri_data_V_BT
+
+#write.csv(iri_data_V_BT, "/Users/savannahryburn/Desktop/Stomach_Chunk_data/iri_data_Visual_BT.csv", row.names = FALSE)
+
+###DNA
+# Frequency of Occurrence (FO) calculation
+fo <- Chunk_BT %>%
+  group_by(BLAST_ID) %>%
+  summarise(Frequency = n_distinct(Fodrie_shark)) %>%
+  mutate(FO = (Frequency / n_distinct(Chunk_BT$Fodrie_shark)) * 100)
+
+# Numerical Abundance (N%) calculation
+n_percentage <- Chunk_BT %>%
+  group_by(BLAST_ID) %>%
+  summarise(Total_Count = sum(Number.of.individuals.in.sample)) %>%
+  mutate(N_percent = (Total_Count / sum(Total_Count)) * 100)
+
+# Weight Percentage (W%) calculation
+w_percentage <- Chunk_BT %>%
+  group_by(BLAST_ID) %>%
+  summarise(Total_Weight = sum(Prey_Weight)) %>%
+  mutate(W_percent = (Total_Weight / sum(Total_Weight)) * 100)
+
+# Combine and calculate IRI
+iri_data_DNA_BT <- fo %>%
+  left_join(n_percentage, by = "BLAST_ID") %>%
+  left_join(w_percentage, by = "BLAST_ID") %>%
+  mutate(IRI = (N_percent + W_percent) * FO)
+
+iri_data_DNA_BT
+
+# Calculate the IRI percentage
+total_iri <- sum(iri_data_DNA_BT$IRI, na.rm = TRUE)
+iri_data_DNA_BT <- iri_data_DNA_BT %>%
+  mutate(IRI_percent = (IRI / total_iri) * 100)
+
+iri_data_DNA_BT
+
+#write.csv(iri_data_DNA_BT, "/Users/savannahryburn/Desktop/Stomach_Chunk_data/iri_data_DNA_BT.csv", row.names = FALSE)
+```
+
+IRI% Calculations - Bonnethead
+```{r}
+###Visual
+
+# Remove rows with NA values in Count or Weight
+Chunk <- Chunk %>%
+  filter(!is.na(Number.of.individuals.in.sample), !is.na(Prey_Weight))
+Chunk
+
+# Check for zero total counts or weights
+sum(Chunk$Number.of.individuals.in.sample)
+sum(Chunk$Prey_Weight)
+
+#Now only by shark species (Atlantic sharpnose)
+Chunk_BH <- Chunk %>%
+  filter(Shark_species == "Bonnethead")
+#View(Chunk_BH)
+
+# Frequency of Occurrence (FO) calculation
+fo <- Chunk_BH %>%
+  group_by(Visual_ID) %>%
+  summarise(Frequency = n_distinct(Fodrie_shark)) %>%
+  mutate(FO = (Frequency / n_distinct(Chunk_BH$Fodrie_shark)) * 100)
+
+# Numerical Abundance (N%) calculation
+n_percentage <- Chunk_BH %>%
+  group_by(Visual_ID) %>%
+  summarise(Total_Count = sum(Number.of.individuals.in.sample)) %>%
+  mutate(N_percent = (Total_Count / sum(Total_Count)) * 100)
+
+# Weight Percentage (W%) calculation
+w_percentage <- Chunk_BH %>%
+  group_by(Visual_ID) %>%
+  summarise(Total_Weight = sum(Prey_Weight)) %>%
+  mutate(W_percent = (Total_Weight / sum(Total_Weight)) * 100)
+
+# Combine and calculate IRI
+iri_data_V_BH <- fo %>%
+  left_join(n_percentage, by = "Visual_ID") %>%
+  left_join(w_percentage, by = "Visual_ID") %>%
+  mutate(IRI = (N_percent + W_percent) * FO)
+
+iri_data_V_BH
+
+# Calculate the IRI percentage
+total_iri <- sum(iri_data_V_BH$IRI, na.rm = TRUE)
+iri_data_V_BH <- iri_data_V_BH %>%
+  mutate(IRI_percent = (IRI / total_iri) * 100)
+
+iri_data_V_BH
+
+#write.csv(iri_data_V_BH, "/Users/savannahryburn/Desktop/Stomach_Chunk_data/iri_data_Visual_BH.csv", row.names = FALSE)
+
+###DNA
+# Frequency of Occurrence (FO) calculation
+fo <- Chunk_BH %>%
+  group_by(BLAST_ID) %>%
+  summarise(Frequency = n_distinct(Fodrie_shark)) %>%
+  mutate(FO = (Frequency / n_distinct(Chunk_BH$Fodrie_shark)) * 100)
+
+# Numerical Abundance (N%) calculation
+n_percentage <- Chunk_BH %>%
+  group_by(BLAST_ID) %>%
+  summarise(Total_Count = sum(Number.of.individuals.in.sample)) %>%
+  mutate(N_percent = (Total_Count / sum(Total_Count)) * 100)
+
+# Weight Percentage (W%) calculation
+w_percentage <- Chunk_BH %>%
+  group_by(BLAST_ID) %>%
+  summarise(Total_Weight = sum(Prey_Weight)) %>%
+  mutate(W_percent = (Total_Weight / sum(Total_Weight)) * 100)
+
+# Combine and calculate IRI
+iri_data_DNA_BH <- fo %>%
+  left_join(n_percentage, by = "BLAST_ID") %>%
+  left_join(w_percentage, by = "BLAST_ID") %>%
+  mutate(IRI = (N_percent + W_percent) * FO)
+
+iri_data_DNA_BH
+
+# Calculate the IRI percentage
+total_iri <- sum(iri_data_DNA_BH$IRI, na.rm = TRUE)
+iri_data_DNA_BH <- iri_data_DNA_BH %>%
+  mutate(IRI_percent = (IRI / total_iri) * 100)
+
+iri_data_DNA_BH
+
+#write.csv(iri_data_DNA_BH, "/Users/savannahryburn/Desktop/Stomach_Chunk_data/iri_data_DNA_BH.csv", row.names = FALSE)
+```
+
+#PERMANOVA comparing differences between shark species diet and method
+```{r}
+library(vegan)
+library(tidyr)
+library(dplyr)
+
+# Convert BLAST_ID (DNA barcoding results) to presence-absence matrix
+barcode_pa <- Chunk_per %>%
+  filter(!is.na(BLAST_ID) & BLAST_ID != "") %>%  # Remove NA and empty species names
+  mutate(Present = 1) %>%  # Create presence indicator
+  pivot_wider(names_from = BLAST_ID, values_from = Present, values_fill = 0)
+
+# Convert Visual_ID (Morphological results) to presence-absence matrix
+morpho_pa <- Chunk_per %>%
+  filter(!is.na(Visual_ID) & Visual_ID != "") %>%  # Remove NA and empty values
+  mutate(Present = 1) %>%  
+  pivot_wider(names_from = Visual_ID, values_from = Present, values_fill = 0)
+
+# Remove non-numeric columns
+barcode_matrix <- barcode_pa %>% select(where(is.numeric))
+morpho_matrix <- morpho_pa %>% select(where(is.numeric))
+
+# Compute Jaccard distance (for presence-absence data)
+sum(is.na(barcode_matrix))
+barcode_matrix[is.na(barcode_matrix)] <- 0
+barcode_matrix <- na.omit(barcode_matrix)
+barcode_dist <- vegdist(barcode_matrix, method = "jaccard")
+
+sum(is.na(morpho_matrix))
+morpho_matrix[is.na(morpho_matrix)] <- 0
+morpho_matrix <- na.omit(morpho_matrix)
+morpho_dist <- vegdist(morpho_matrix, method = "jaccard")
+
+barcode_perm <- adonis2(barcode_dist ~ Shark_species, data = barcode_pa, permutations = 999)
+morpho_perm <- adonis2(morpho_dist ~ Shark_species, data = morpho_pa, permutations = 999)
+
+print(barcode_perm)
+print(morpho_perm)
+
+
+
+# Calculate dissimilarity matrices for both datasets
+barcode_dist <- vegdist(barcode_matrix, method = "jaccard")  # Barcoding data
+morpho_dist <- vegdist(morpho_matrix, method = "jaccard")    # Morphological data
+
+# Convert dissimilarity matrices to data frames
+barcode_df <- as.data.frame(as.matrix(barcode_dist))
+morpho_df <- as.data.frame(as.matrix(morpho_dist))
+
+# Add a 'method' column to distinguish between morphological and barcoding methods
+barcode_df$method <- "Barcoding"
+morpho_df$method <- "Morphological"
+
+# Combine the two dataframes (one for barcoding and one for morphological data)
+combined_df <- rbind(barcode_df, morpho_df)
+
+# Add Shark_species information to the combined dataset
+combined_df$Shark_Species <- rep(barcode_pa$Shark_species, 2)  # Assuming same samples for both methods
+
+# Select only the numeric columns for the dissimilarity matrix
+combined_df_numeric <- combined_df %>%
+  select_if(is.numeric)
+
+# Run PERMANOVA with method and Shark_Species as grouping factors
+combined_perm <- adonis2(combined_df_numeric ~ method + Shark_Species, data = combined_df, permutations = 999)
+print(combined_perm)
+```
+
+#PERMANOVA comparing differences between methods (separated by shark species)
+```{r}
+library(vegan)
+library(tidyr)
+library(dplyr)
+
+####### Blacktip ########
+
+#Now only by shark species (Blacktip) - this is FOO
+# Filter the dataset for only Blacktip shark species
+Chunk_per_BT <- Chunk_per %>% filter(Shark_species == "Blacktip")
+
+# Convert BLAST_ID (DNA barcoding results) to presence-absence matrix
+barcode_pa <- Chunk_per_BT %>%
+  filter(!is.na(BLAST_ID) & BLAST_ID != "") %>%  # Remove NA and empty species names
+  mutate(Present = 1) %>%  # Create presence indicator
+  pivot_wider(names_from = BLAST_ID, values_from = Present, values_fill = 0)
+
+# Convert Visual_ID (Morphological results) to presence-absence matrix
+morpho_pa <- Chunk_per_BT %>%
+  filter(!is.na(Visual_ID) & Visual_ID != "") %>%  # Remove NA and empty values
+  mutate(Present = 1) %>%  
+  pivot_wider(names_from = Visual_ID, values_from = Present, values_fill = 0)
+
+# Remove non-numeric columns
+barcode_matrix <- barcode_pa %>% select(where(is.numeric))
+morpho_matrix <- morpho_pa %>% select(where(is.numeric))
+
+# Calculate dissimilarity matrices for both datasets
+barcode_dist <- vegdist(barcode_matrix, method = "jaccard")  # Barcoding data
+morpho_dist <- vegdist(morpho_matrix, method = "jaccard")    # Morphological data
+
+# Convert dissimilarity matrices to data frames
+barcode_df <- as.data.frame(as.matrix(barcode_dist))
+morpho_df <- as.data.frame(as.matrix(morpho_dist))
+
+# Add a 'method' column to distinguish between morphological and barcoding methods
+barcode_df$method <- "Barcoding"
+morpho_df$method <- "Morphological"
+
+# Combine the two dataframes (one for barcoding and one for morphological data)
+combined_df <- rbind(barcode_df, morpho_df)
+
+# Add Shark_species information to the combined dataset
+combined_df$Shark_Species <- rep(barcode_pa$Shark_species, 2)  # Assuming same samples for both methods
+
+# Select only the numeric columns for the dissimilarity matrix
+combined_df_numeric <- combined_df %>%
+  select_if(is.numeric)
+
+# Run PERMANOVA with method and Shark_Species as grouping factors
+combined_perm <- adonis2(combined_df_numeric ~ method, data = combined_df, permutations = 999)
+print(combined_perm)
+
+####### Blacknose ########
+
+#Now only by shark species (Blacknose) - this is FOO
+# Filter the dataset for only Blacknose shark species
+Chunk_per_BN <- Chunk_per %>% filter(Shark_species == "Blacknose")
+
+# Convert BLAST_ID (DNA barcoding results) to presence-absence matrix
+barcode_pa <- Chunk_per_BN %>%
+  filter(!is.na(BLAST_ID) & BLAST_ID != "") %>%  # Remove NA and empty species names
+  mutate(Present = 1) %>%  # Create presence indicator
+  pivot_wider(names_from = BLAST_ID, values_from = Present, values_fill = 0)
+
+# Convert Visual_ID (Morphological results) to presence-absence matrix
+morpho_pa <- Chunk_per_BN %>%
+  filter(!is.na(Visual_ID) & Visual_ID != "") %>%  # Remove NA and empty values
+  mutate(Present = 1) %>%  
+  pivot_wider(names_from = Visual_ID, values_from = Present, values_fill = 0)
+
+# Remove non-numeric columns
+barcode_matrix <- barcode_pa %>% select(where(is.numeric))
+morpho_matrix <- morpho_pa %>% select(where(is.numeric))
+
+# Calculate dissimilarity matrices for both datasets
+barcode_dist <- vegdist(barcode_matrix, method = "jaccard")  # Barcoding data
+morpho_dist <- vegdist(morpho_matrix, method = "jaccard")    # Morphological data
+
+# Convert dissimilarity matrices to data frames
+barcode_df <- as.data.frame(as.matrix(barcode_dist))
+morpho_df <- as.data.frame(as.matrix(morpho_dist))
+
+# Add a 'method' column to distinguish between morphological and barcoding methods
+barcode_df$method <- "Barcoding"
+morpho_df$method <- "Morphological"
+
+# Combine the two dataframes (one for barcoding and one for morphological data)
+combined_df <- rbind(barcode_df, morpho_df)
+
+# Add Shark_species information to the combined dataset
+combined_df$Shark_Species <- rep(barcode_pa$Shark_species, 2)  # Assuming same samples for both methods
+
+# Select only the numeric columns for the dissimilarity matrix
+combined_df_numeric <- combined_df %>%
+  select_if(is.numeric)
+
+# Run PERMANOVA with method and Shark_Species as grouping factors
+combined_perm <- adonis2(combined_df_numeric ~ method, data = combined_df, permutations = 999)
+print(combined_perm)
+
+
+####### Bonnethead ########
+
+#Now only by shark species (Bonnethead) - this is FOO
+# Filter the dataset for only Bonnethead shark species
+Chunk_per_BH <- Chunk_per %>% filter(Shark_species == "Bonnethead")
+
+# Convert BLAST_ID (DNA barcoding results) to presence-absence matrix
+barcode_pa <- Chunk_per_BH %>%
+  filter(!is.na(BLAST_ID) & BLAST_ID != "") %>%  # Remove NA and empty species names
+  mutate(Present = 1) %>%  # Create presence indicator
+  pivot_wider(names_from = BLAST_ID, values_from = Present, values_fill = 0)
+
+# Convert Visual_ID (Morphological results) to presence-absence matrix
+morpho_pa <- Chunk_per_BH %>%
+  filter(!is.na(Visual_ID) & Visual_ID != "") %>%  # Remove NA and empty values
+  mutate(Present = 1) %>%  
+  pivot_wider(names_from = Visual_ID, values_from = Present, values_fill = 0)
+
+# Remove non-numeric columns
+barcode_matrix <- barcode_pa %>% select(where(is.numeric))
+morpho_matrix <- morpho_pa %>% select(where(is.numeric))
+
+# Calculate dissimilarity matrices for both datasets
+barcode_dist <- vegdist(barcode_matrix, method = "jaccard")  # Barcoding data
+morpho_dist <- vegdist(morpho_matrix, method = "jaccard")    # Morphological data
+
+# Convert dissimilarity matrices to data frames
+barcode_df <- as.data.frame(as.matrix(barcode_dist))
+morpho_df <- as.data.frame(as.matrix(morpho_dist))
+
+# Add a 'method' column to distinguish between morphological and barcoding methods
+barcode_df$method <- "Barcoding"
+morpho_df$method <- "Morphological"
+
+# Combine the two dataframes (one for barcoding and one for morphological data)
+combined_df <- rbind(barcode_df, morpho_df)
+
+# Add Shark_species information to the combined dataset
+combined_df$Shark_Species <- rep(barcode_pa$Shark_species, 2)  # Assuming same samples for both methods
+
+# Select only the numeric columns for the dissimilarity matrix
+combined_df_numeric <- combined_df %>%
+  select_if(is.numeric)
+
+# Run PERMANOVA with method and Shark_Species as grouping factors
+combined_perm <- adonis2(combined_df_numeric ~ method, data = combined_df, permutations = 999)
+print(combined_perm)
+
+
+####### Atlantic Sharpnose ########
+
+#Now only by shark species (Atlantic Sharpnose) - this is FOO
+# Filter the dataset for only Atlantic Sharpnose shark species
+Chunk_per_AS <- Chunk_per %>% filter(Shark_species == "Atlantic Sharpnose")
+
+# Convert BLAST_ID (DNA barcoding results) to presence-absence matrix
+barcode_pa <- Chunk_per_AS %>%
+  filter(!is.na(BLAST_ID) & BLAST_ID != "") %>%  # Remove NA and empty species names
+  mutate(Present = 1) %>%  # Create presence indicator
+  pivot_wider(names_from = BLAST_ID, values_from = Present, values_fill = 0)
+
+# Convert Visual_ID (Morphological results) to presence-absence matrix
+morpho_pa <- Chunk_per_AS %>%
+  filter(!is.na(Visual_ID) & Visual_ID != "") %>%  # Remove NA and empty values
+  mutate(Present = 1) %>%  
+  pivot_wider(names_from = Visual_ID, values_from = Present, values_fill = 0)
+
+# Remove non-numeric columns
+barcode_matrix <- barcode_pa %>% select(where(is.numeric))
+morpho_matrix <- morpho_pa %>% select(where(is.numeric))
+
+# Calculate dissimilarity matrices for both datasets
+barcode_dist <- vegdist(barcode_matrix, method = "jaccard")  # Barcoding data
+morpho_dist <- vegdist(morpho_matrix, method = "jaccard")    # Morphological data
+
+# Convert dissimilarity matrices to data frames
+barcode_df <- as.data.frame(as.matrix(barcode_dist))
+morpho_df <- as.data.frame(as.matrix(morpho_dist))
+
+# Add a 'method' column to distinguish between morphological and barcoding methods
+barcode_df$method <- "Barcoding"
+morpho_df$method <- "Morphological"
+
+# Combine the two dataframes (one for barcoding and one for morphological data)
+combined_df <- rbind(barcode_df, morpho_df)
+
+# Add Shark_species information to the combined dataset
+combined_df$Shark_Species <- rep(barcode_pa$Shark_species, 2)  # Assuming same samples for both methods
+
+# Select only the numeric columns for the dissimilarity matrix
+combined_df_numeric <- combined_df %>%
+  select_if(is.numeric)
+
+# Run PERMANOVA with method and Shark_Species as grouping factors
+combined_perm <- adonis2(combined_df_numeric ~ method, data = combined_df, permutations = 999)
+print(combined_perm)
+```
