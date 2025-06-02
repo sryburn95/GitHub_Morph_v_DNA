@@ -31,8 +31,8 @@ Chunk_per <- read.csv("Data/Chunk_data_permanova.csv")
 species_visual <- ggplot(Chunk, 
        aes(x = factor(Shark_species),
            fill = factor(lowest_visual, 
-                         levels = c("Subphylum", "Subclass", "Infraclass", "Order", "Infraorder", "Family", "Genus", "Species", "NA"),
-                         labels = c("Subphylum", "Subclass", "Infraclass", "Order", "Infraorder", "Family", "Genus", "Species", "NA")))) + 
+                         levels = c("Subphylum", "Class", "Order", "Family", "Genus", "Species", "NA"),
+                         labels = c("Subphylum", "Class", "Order", "Family", "Genus", "Species", "NA")))) + 
   geom_bar(position = "fill") +
   scale_y_continuous(breaks = seq(0, 1, .2), 
                      label = percent, expand = c(0,0)) +
@@ -40,7 +40,7 @@ species_visual <- ggplot(Chunk,
        fill = "Prey taxa",
        x = "Shark species") +
   theme_classic() +
-    scale_fill_manual(values = c("royalblue", "indianred4", "#d7b5d8", "aquamarine4","salmon", "darkolivegreen3", "khaki", "lightblue", "grey")) +
+    scale_fill_manual(values = c("indianred4", "royalblue", "aquamarine4", "darkolivegreen3", "khaki", "lightblue", "grey")) +
    theme(text = element_text(size =11))
 
  species_visual
